@@ -1,0 +1,158 @@
+---
+title: "ShocksFishRegionDistrict"
+author: "Grace"
+date: "2023-05-05"
+output: html_document
+---
+
+Script for identifying shocks to the price and weight of fish captured by region and district
+
+Shocks to the weight of fish captured by District 
+
+Data from 2019 and 2020 Annual Fisheries Statistical Reports, Ministry of Livestock and Fisheries
+https://www.mifugouvuvi.go.tz/publications/62
+
+```{r}
+library(plyr)
+
+weightfish<-read.csv("weightfishtanz.csv")
+weightfish<-weightfish %>%arrange(District,year,monthinyear)%>%separate(weightMT, into = c("weightMT", "value2"), sep = "\n")%>% select(Lake_or_coast,Region,District,Type,month,year,monthinyear,weightMT)
+weightfish$weightMT<- as.numeric(gsub(",","",weightfish$weightMT))
+
+##trying out for one district
+
+Kyela<- weightfish %>% filter(District=="Kyela District Council") %>% arrange(year,monthinyear)
+sdkyela<-sd(Kyela$weightMT)
+meankyela<-mean(as.numeric(Kyela$weightMT))
+
+Kyela<- Kyela %>% mutate(`+2sds`= ifelse( weightMT> 2*sdkyela+meankyela, TRUE, FALSE))%>% mutate(`+1.5sds`=ifelse( weightMT> 1.5*sdkyela+meankyela, TRUE, FALSE))%>% mutate(`+1sds`=ifelse( weightMT> 1*sdkyela+meankyela, TRUE, FALSE)) %>% mutate(`-2sds`=ifelse(weightMT<meankyela-2*sdkyela, TRUE, FALSE)) %>%mutate(`-1.5sds`=ifelse(weightMT<meankyela-1.5*sdkyela, TRUE, FALSE)) %>% mutate(`-1sds`=ifelse(weightMT<(meankyela-1*sdkyela), TRUE, FALSE))
+
+Kyela$`+diff1sd`<- FALSE
+Kyela$`+diff1.5sd`<-FALSE
+Kyela$`+diff2sd`<- FALSE
+Kyela$`-diff1sd`<- FALSE
+Kyela$`-diff1.5sd`<- FALSE
+Kyela$`-diff2sd`<- FALSE
+
+for(i in 2:nrow(Kyela)){
+  Kyela$`+diff1sd`[i]<- ifelse(Kyela$weightMT[i]>(Kyela$weightMT[i-1]+ sdkyela), TRUE, FALSE)
+  Kyela$`+diff1.5sd`[i]<- ifelse(Kyela$weightMT[i]>(Kyela$weightMT[i-1]+ 1.5*sdkyela), TRUE, FALSE)
+  Kyela$`+diff2sd`[i]<- ifelse(Kyela$weightMT[i]>(Kyela$weightMT[i-1]+ 2*sdkyela), TRUE, FALSE)
+  Kyela$`-diff1sd`[i]<- ifelse(Kyela$weightMT[i]<(Kyela$weightMT[i-1]- sdkyela), TRUE, FALSE)
+  Kyela$`-diff1.5sd`[i]<- ifelse(Kyela$weightMT[i]<(Kyela$weightMT[i-1]- 1.5*sdkyela), TRUE, FALSE)
+  Kyela$`-diff2sd`[i]<- ifelse(Kyela$weightMT[i]<(Kyela$weightMT[i-1]- 2*sdkyela), TRUE, FALSE)
+  
+}
+
+complete<- Kyela
+districts<- unique(weightfish$District)
+
+
+for (i in 1:25){
+  Dist <-districts[i]
+  DistrictTable<- weightfish %>% filter(District==Dist)%>%arrange(year,monthinyear)
+
+sddist<-sd(DistrictTable$weightMT)
+meandist<-mean(DistrictTable$weightMT)
+
+
+DistrictTable<- DistrictTable %>% mutate(`+2sds`= ifelse( weightMT> (2*sddist+meandist), TRUE, FALSE))%>% mutate(`+1.5sds`=ifelse( weightMT> (1.5*sddist+meandist), TRUE, FALSE))%>% mutate(`+1sds`=ifelse( weightMT> (1*sddist+meandist), TRUE, FALSE))%>% mutate(`-2sds`= ifelse( weightMT< (meandist- 2*sddist), TRUE, FALSE)) %>% mutate(`-1.5sds`= ifelse( weightMT<(meandist- 1.5*sddist), TRUE, FALSE)) %>% mutate(`-1sds`= ifelse( weightMT< (meandist- 1*sddist), TRUE, FALSE))
+
+DistrictTable$`+diff1sd`<- FALSE
+DistrictTable$`+diff1.5sd`<-FALSE
+DistrictTable$`+diff2sd`<- FALSE
+DistrictTable$`-diff1sd`<- FALSE
+DistrictTable$`-diff1.5sd`<-FALSE
+DistrictTable$`-diff2sd`<- FALSE
+
+print(DistrictTable)
+
+for(i in 2:nrow(DistrictTable)){
+  DistrictTable$`+diff1sd`[i]<- ifelse(DistrictTable$weightMT[i]>(DistrictTable$weightMT[i-1]+ sddist), TRUE, FALSE)
+  DistrictTable$`+diff1.5sd`[i]<- ifelse(DistrictTable$weightMT[i]>(DistrictTable$weightMT[i-1]+ 1.5*sddist), TRUE, FALSE)
+  DistrictTable$`+diff2sd`[i]<- ifelse(DistrictTable$weightMT[i]>(DistrictTable$weightMT[i-1]+ 2*sddist), TRUE, FALSE)
+  DistrictTable$`-diff1sd`[i]<- ifelse(DistrictTable$weightMT[i]<(DistrictTable$weightMT[i-1]- sddist), TRUE, FALSE)
+  DistrictTable$`-diff1.5sd`[i]<- ifelse(DistrictTable$weightMT[i]<(DistrictTable$weightMT[i-1]- 1.5*sddist), TRUE, FALSE)
+  DistrictTable$`-diff2sd`[i]<- ifelse(DistrictTable$weightMT[i]<(DistrictTable$weightMT[i-1]- 2*sddist), TRUE, FALSE)
+  
+}
+
+complete<- rbind.fill(complete, DistrictTable)
+}
+complete<-complete%>%distinct()
+
+write.csv("FishWeightShocksDistrict.csv", complete)
+```
+
+
+
+Shocks to Fish Price by region
+
+World Food Programme
+
+```{r}
+
+tanz_prices<-read.csv("WFP_2023Feb11_UnitedRepublic of Tanzania_FoodPricesData (1).csv")
+fish<- tanz_prices %>% filter(Commodity=="Fish (fresh)",Year<2020)%>%drop_na(Price)
+regions<-unique(fish$Market)
+
+Kigoma<- fish %>% filter(Market=="Kigoma Region",Year<2020)%>%drop_na(Price)
+
+sdregion<-sd(Kigoma$Price)
+meanregion<-mean(Kigoma$Price)
+
+
+Kigoma<- Kigoma %>% mutate(`+2sds`= ifelse( Price> 2*sdregion+meanregion, TRUE, FALSE))%>% mutate(`+1.5sds`=ifelse( Price> 1.5*sdregion+meanregion, TRUE, FALSE))%>% mutate(`+1sds`=ifelse( Price> 1*sdregion+meanregion, TRUE, FALSE))%>% mutate(`-2sds`= ifelse( Price< meanregion- 2*sdregion, TRUE, FALSE)) %>% mutate(`-1.5sds`= ifelse( Price< meanregion- 1.5*sdregion, TRUE, FALSE)) %>% mutate(`-1sds`= ifelse( Price< meanregion- 1*sdregion, TRUE, FALSE))
+
+Kigoma$`+diff1sd`<- FALSE
+Kigoma$`+diff1.5sd`<-FALSE
+Kigoma$`+diff2sd`<- FALSE
+Kigoma$`-diff1sd`<- FALSE
+Kigoma$`-diff1.5sd`<-FALSE
+Kigoma$`-diff2sd`<- FALSE
+
+for(i in 2:nrow(Kigoma)){
+  Kigoma$`+diff1sd`[i]<- ifelse(Kigoma$Price[i]>(Kigoma$Price[i-1]+ sdregion), TRUE, FALSE)
+  Kigoma$`+diff1.5sd`[i]<- ifelse(Kigoma$Price[i]>(Kigoma$Price[i-1]+ 1.5*sdregion), TRUE, FALSE)
+  Kigoma$`+diff2sd`[i]<- ifelse(Kigoma$Price[i]>(Kigoma$Price[i-1]+ 2*sdregion), TRUE, FALSE)
+  Kigoma$`-diff1sd`[i]<- ifelse(Kigoma$Price[i]<(Kigoma$Price[i-1]- sdregion), TRUE, FALSE)
+  Kigoma$`-diff1.5sd`[i]<- ifelse(Kigoma$Price[i]<(Kigoma$Price[i-1]- 1.5*sdregion), TRUE, FALSE)
+  Kigoma$`-diff2sd`[i]<- ifelse(Kigoma$Price[i]<(Kigoma$Price[i-1]- 2*sdregion), TRUE, FALSE)}
+  
+
+complete<-Kigoma
+
+for (i in 1:24){
+  Region <-regions[i]
+  RegionTable<- fish %>% filter(Market==Region,Year<2020)%>%drop_na(Price)
+
+sdregion<-sd(RegionTable$Price)
+meanregion<-mean(RegionTable$Price)
+
+
+RegionTable<- RegionTable %>% mutate(`+2sds`= ifelse( Price> 2*sdregion+meanregion, TRUE, FALSE))%>% mutate(`+1.5sds`=ifelse( Price> 1.5*sdregion+meanregion, TRUE, FALSE))%>% mutate(`+1sds`=ifelse( Price> 1*sdregion+meanregion, TRUE, FALSE))%>% mutate(`-2sds`= ifelse( Price< meanregion- 2*sdregion, TRUE, FALSE)) %>% mutate(`-1.5sds`= ifelse( Price< meanregion- 1.5*sdregion, TRUE, FALSE)) %>% mutate(`-1sds`= ifelse( Price< meanregion- 1*sdregion, TRUE, FALSE))
+
+RegionTable$`+diff1sd`<- FALSE
+RegionTable$`+diff1.5sd`<-FALSE
+RegionTable$`+diff2sd`<- FALSE
+RegionTable$`-diff1sd`<- FALSE
+RegionTable$`-diff1.5sd`<-FALSE
+RegionTable$`-diff2sd`<- FALSE
+
+for(i in 2:nrow(RegionTable)){
+  RegionTable$`+diff1sd`[i]<- ifelse(RegionTable$Price[i]>(RegionTable$Price[i-1]+ sdregion), TRUE, FALSE)
+  RegionTable$`+diff1.5sd`[i]<- ifelse(RegionTable$Price[i]>(RegionTable$Price[i-1]+ 1.5*sdregion), TRUE, FALSE)
+  RegionTable$`+diff2sd`[i]<- ifelse(RegionTable$Price[i]>(RegionTable$Price[i-1]+ 2*sdregion), TRUE, FALSE)
+  RegionTable$`-diff1sd`[i]<- ifelse(RegionTable$Price[i]<(RegionTable$Price[i-1]- sdregion), TRUE, FALSE)
+  RegionTable$`-diff1.5sd`[i]<- ifelse(RegionTable$Price[i]<(RegionTable$Price[i-1]- 1.5*sdregion), TRUE, FALSE)
+  RegionTable$`-diff2sd`[i]<- ifelse(RegionTable$Price[i]<(RegionTable$Price[i-1]- 2*sdregion), TRUE, FALSE)
+  
+}
+
+
+complete<- rbind.fill(complete, RegionTable)
+}
+complete<-complete%>%distinct()
+
+write.csv("FishPriceShocksRegion.csv", complete)
+```
