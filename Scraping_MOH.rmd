@@ -1,0 +1,243 @@
+---
+title: "Scraping_MOH"
+author: "Grace"
+date: "2023-05-05"
+output: html_document
+---
+
+List of Ministry of Health Facility UIDs 
+
+jT2y2DAIQOr - A
+wuQuMExhCXa- A
+uA7nNtZE8bv - A
+PmSZNZHac3t - A
+nYUBZNhU74M - A
+WAdaCligbNP - A
+ykDWUlQzexW - A
+Yut5amdi7iw - B
+U1KbGaXmjgY - B
+Yut5amdi7iw - B
+
+Routine Data Statistics Dashboard, Ministry of Health Tanzania:
+https://hmisportal.moh.go.tz/hmisportal/#/dashboards/routine
+
+Query to run for A indicators:
+```{r}
+health_facilities<- read.csv("Health Facilities with Type and Ownership 2017.csv")
+finaldf<- data.frame(UID="")
+finaldf$`201601`<- ""
+finaldf$`201602`<- ""
+finaldf$`201603`<- ""
+finaldf$`201604`<- ""
+finaldf$`201605`<- ""
+finaldf$`201606`<- ""
+finaldf$`201607`<- ""
+finaldf$`201608`<- ""
+finaldf$`201609`<- ""
+finaldf$`201610`<- ""
+finaldf$`201611`<- ""
+finaldf$`201612`<- ""
+finaldf$`201701`<- ""
+finaldf$`201702`<- ""
+finaldf$`201703`<- ""
+finaldf$`201704`<- ""
+finaldf$`201705`<- ""
+finaldf$`201706`<- ""
+finaldf$`201707`<- ""
+finaldf$`201708`<- ""
+finaldf$`201709`<- ""
+finaldf$`201710`<- ""
+finaldf$`201711`<- ""
+finaldf$`201712`<- ""
+finaldf$`201801`<- ""
+finaldf$`201802`<- ""
+finaldf$`201803`<- ""
+finaldf$`201804`<- ""
+finaldf$`201805`<- ""
+finaldf$`201806`<- ""
+finaldf$`201807`<- ""
+finaldf$`201808`<- ""
+finaldf$`201809`<- ""
+finaldf$`201810`<- ""
+finaldf$`201811`<- ""
+finaldf$`201812`<- ""
+finaldf$`201901`<- ""
+finaldf$`201902`<- ""
+finaldf$`201903`<- ""
+finaldf$`201904`<- ""
+finaldf$`201905`<- ""
+finaldf$`201906`<- ""
+finaldf$`201907`<- ""
+finaldf$`201908`<- ""
+finaldf$`201909`<- ""
+finaldf$`201910`<- ""
+finaldf$`201911`<- ""
+finaldf$`201912`<- ""
+
+queryfirst<-"https://hmisportal.moh.go.tz/portal-middleware-live/api/analytics.json?dimension=pe:201601;201602;201603;201604;201605;201606;201607;201608;201609;201610;201611;201612;201701;201702;201703;201704;201705;201706;201707;201708;201709;201710;201711;201712;201801;201802;201803;201804;201805;201806;201807;201808;201809;201810;201811;201812;201901;201902;201903;201904;201905;201906;201907;201908;201909;201910;201911;201912&dimension=dx:"
+
+#FEED IN INDICATOR HERE
+
+indicator<-"jT2y2DAIQOr"
+querysecond<-"&filter=ou:"
+facility<-"a8Um7bbcB5Z"
+querylast<-"&includeMetadataDetails=true"
+query<-paste(queryfirst, indicator, querysecond, facility, querylast)
+query<-gsub(" ", "", query)
+today<-fromJSON(query)
+as.data.frame(t(as.matrix(today$rows)))
+
+
+## Would sometimes not work very well if I try and do all 7920 facilities at once, so this is to enable me to run chunks of facilities at a time
+finish<- slice(health_facilities, (5:7920))
+faclist<-finish$`All Facilities with Ownership and Type`
+
+for (i in 1:length(faclist)){
+  tryCatch({
+  fac<-faclist[i]
+  query<-gsub(" ", "", paste(queryfirst, indicator,querysecond, fac, querylast))
+  call<-fromJSON(query)
+  ok<-as.data.frame(t(as.matrix(call$rows)))
+  thisdf<-slice(ok,3)
+  #collist<-append(collist, facility)
+  colnames(thisdf)<- slice(ok,2)
+  #print(thisdf)
+  thisdf<- thisdf %>% add_column(UID=fac)
+  finaldf<- rbind.fill(finaldf, thisdf)
+  }
+  , error=function(e){cat("ERROR :",conditionMessage(e), "\n")})
+}  
+
+write.csv(file="INSERTINDICATORNAMEHERE.csv", thisdf)
+```
+
+
+
+
+
+Query for B Indicators:
+
+```{r}
+longpanel<- data.frame(indicator="")
+longpanel$UID<-""
+longpanel$count<-""
+longpanel$month<-""
+
+
+queryA<-"https://hmisportal.moh.go.tz/portal-middleware-live/api/analytics.json?dimension=ou:LEVEL-4&dimension=dx:"
+
+#FEED INDICATOR IN HERE
+
+indicator<-"Yut5amdi7iw"
+queryB<-"&filter=pe:"
+year<-"201805"
+queryC<-"&includeMetadataDetails=true"
+
+
+yearlist<- c("201601","201602","201603","201604","201605","201606","201607","201608","201609","201610","201611","201612","201701","201702","201703","201704","201705","201706","201707","201708","201709","201710","201711","201712","201801","201802","201803","201804","201805","201806","201807","201808","201809","201810","201811","201812","201903","201904","201905","201906","201907","201908","201909","201910","201911","201912")
+
+
+for (i in 1:length(yearlist)){
+    yearmonth<- yearlist[i]
+    query<-gsub(" ", "", paste(queryA, indicator, queryB, yearmonth, queryC))
+    call<-fromJSON(query)
+    thisdf<-as.data.frame((as.matrix(call$rows)))
+    print(thisdf)
+    thisdf<- thisdf %>% rename(indicator=V1, UID=V2, count=V3)
+    thisdf$month<-yearmonth
+    longpanel<-rbind.fill(longpanel, thisdf)
+}
+
+write.csv(file="INSERTINDICATORNAMEHERE.csv", longpanel)
+```
+
+Including gender dimension 
+
+```{r}
+finaldf<- data.frame(UID="")
+finaldf$`201601`<- ""
+finaldf$`201602`<- ""
+finaldf$`201603`<- ""
+finaldf$`201604`<- ""
+finaldf$`201605`<- ""
+finaldf$`201606`<- ""
+finaldf$`201607`<- ""
+finaldf$`201608`<- ""
+finaldf$`201609`<- ""
+finaldf$`201610`<- ""
+finaldf$`201611`<- ""
+finaldf$`201612`<- ""
+finaldf$`201701`<- ""
+finaldf$`201702`<- ""
+finaldf$`201703`<- ""
+finaldf$`201704`<- ""
+finaldf$`201705`<- ""
+finaldf$`201706`<- ""
+finaldf$`201707`<- ""
+finaldf$`201708`<- ""
+finaldf$`201709`<- ""
+finaldf$`201710`<- ""
+finaldf$`201711`<- ""
+finaldf$`201712`<- ""
+finaldf$`201801`<- ""
+finaldf$`201802`<- ""
+finaldf$`201803`<- ""
+finaldf$`201804`<- ""
+finaldf$`201805`<- ""
+finaldf$`201806`<- ""
+finaldf$`201807`<- ""
+finaldf$`201808`<- ""
+finaldf$`201809`<- ""
+finaldf$`201810`<- ""
+finaldf$`201811`<- ""
+finaldf$`201812`<- ""
+finaldf$`201901`<- ""
+finaldf$`201902`<- ""
+finaldf$`201903`<- ""
+finaldf$`201904`<- ""
+finaldf$`201905`<- ""
+finaldf$`201906`<- ""
+finaldf$`201907`<- ""
+finaldf$`201908`<- ""
+finaldf$`201909`<- ""
+finaldf$`201910`<- ""
+finaldf$`201911`<- ""
+finaldf$`201912`<- ""
+
+queryfirst<-"https://hmisportal.moh.go.tz/portal-middleware-live/api/analytics.json?dimension=pe:201601;201602;201603;201604;201605;201606;201607;201608;201609;201610;201611;201612;201701;201702;201703;201704;201705;201706;201707;201708;201709;201710;201711;201712;201801;201802;201803;201804;201805;201806;201807;201808;201809;201810;201811;201812;201901;201902;201903;201904;201905;201906;201907;201908;201909;201910;201911;201912&dimension=dx:"
+
+#FEED IN INDICATOR HERE
+
+indicator<-"jT2y2DAIQOr"
+querysecond<-"&dimension=hENn80Fmmlf:mtUMlCLFTTz&filter=ou:"
+facility<-"a8Um7bbcB5Z"
+querylast<-"&includeMetadataDetails=true"
+query<-paste(queryfirst, indicator, querysecond, facility, querylast)
+query<-gsub(" ", "", query)
+today<-fromJSON(query)
+as.data.frame(t(as.matrix(today$rows)))
+
+
+## Would sometimes not work very well if I try and do all 7920 facilities at once, so this is to enable me to run chunks of facilities at a time
+finish<- slice(health_facilities, (5:7920))
+faclist<-finish$`All Facilities with Ownership and Type`
+
+for (i in 1:length(faclist)){
+  tryCatch({
+  fac<-faclist[i]
+  query<-gsub(" ", "", paste(queryfirst, indicator,querysecond, fac, querylast))
+  call<-fromJSON(query)
+  ok<-as.data.frame(t(as.matrix(call$rows)))
+  thisdf<-slice(ok,3)
+  #collist<-append(collist, facility)
+  colnames(thisdf)<- slice(ok,2)
+  #print(thisdf)
+  thisdf<- thisdf %>% add_column(UID=fac)
+  finaldf<- rbind.fill(finaldf, thisdf)
+  }
+  , error=function(e){cat("ERROR :",conditionMessage(e), "\n")})
+}  
+
+write.csv(file="INSERTINDICATORNAMEHERE.csv", thisdf)
+```
+
